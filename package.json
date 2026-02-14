@@ -8,8 +8,8 @@
   },
   "dependencies": {
     "discord.js": "^14.14.1",
-    "@napi-rs/canvas": "^0.1.44",
     "dotenv": "^16.4.5",
-    "better-sqlite3": "^9.4.0"
+    "@napi-rs/canvas": "^0.1.50",
+    "pg": "^8.11.3"
   }
 }
