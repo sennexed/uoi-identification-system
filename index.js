@@ -199,7 +199,6 @@ const commands = [
 
 client.once("clientReady", async () => {
   console.log("UOI SYSTEM ONLINE:", client.user.tag);
-  await registerCommands();
 });
 
 /* ================= COMMAND HANDLER ================= */
