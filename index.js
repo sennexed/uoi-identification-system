@@ -7,23 +7,29 @@ import {
   AttachmentBuilder
 } from "discord.js";
 
+import { createCanvas, loadImage } from "@napi-rs/canvas";
 import dotenv from "dotenv";
 import pkg from "pg";
-import { createCanvas, loadImage } from "@napi-rs/canvas";
 
 dotenv.config();
+
 const { Pool } = pkg;
 
-/* ================= DATABASE ================= */
+const client = new Client({
+  intents: [GatewayIntentBits.Guilds]
+});
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
 });
 
+/* ================= DATABASE SETUP ================= */
+
 await pool.query(`
 CREATE TABLE IF NOT EXISTS members (
   id TEXT PRIMARY KEY,
+  discord_id TEXT NOT NULL,
   name TEXT NOT NULL,
   role TEXT NOT NULL,
   status TEXT NOT NULL,
@@ -32,11 +38,7 @@ CREATE TABLE IF NOT EXISTS members (
 );
 `);
 
-/* ================= DISCORD ================= */
-
-const client = new Client({
-  intents: [GatewayIntentBits.Guilds]
-});
+/* ================= HELPERS ================= */
 
 function generateID() {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -46,327 +48,211 @@ function isAdmin(interaction) {
   return interaction.member.roles.cache.has(process.env.ADMIN_ROLE_ID);
 }
 
-function logAction(message) {
-  const channel = client.channels.cache.get(process.env.LOG_CHANNEL_ID);
-  if (channel) channel.send(`📘 ${message}`);
-}
-
-/* ================= CARD BUILDER ================= */
-async function createCard(member, interaction) {
-  const canvas = createCanvas(900, 500);
+async function createCard(member, discordUser) {
+  const canvas = createCanvas(1000, 600);
   const ctx = canvas.getContext("2d");
 
-  // ===== BACKGROUND =====
-  const gradient = ctx.createLinearGradient(0, 0, 900, 500);
-  gradient.addColorStop(0, "#dbeafe");  // light blue
-  gradient.addColorStop(1, "#ffffff");  // white
-  ctx.fillStyle = gradient;
+  // Background
+  ctx.fillStyle = "#e0f2fe"; // light blue
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // ===== HEADER BAR =====
-  ctx.fillStyle = "#3b82f6"; // blue
-  ctx.fillRect(0, 0, 900, 80);
+  // Top bar
+  ctx.fillStyle = "#0ea5e9";
+  ctx.fillRect(0, 0, canvas.width, 80);
 
   ctx.fillStyle = "#ffffff";
-  ctx.font = "bold 32px Sans";
+  ctx.font = "bold 40px Arial";
   ctx.fillText("UNION OF INDIANS", 40, 50);
 
-  ctx.font = "18px Sans";
-  ctx.fillText("OFFICIAL IDENTIFICATION CARD", 40, 70);
+  ctx.font = "22px Arial";
+  ctx.fillText("Official Identification Card", 40, 75);
 
-  // ===== PFP (LEFT SIDE) =====
-  const avatarURL = interaction.user.displayAvatarURL({
-    extension: "png",
-    size: 512
-  });
+  // Left PFP Circle
+  let avatarURL = null;
+  if (discordUser) {
+    avatarURL = discordUser.displayAvatarURL({
+      extension: "png",
+      size: 512
+    });
+  }
 
-  const avatar = await loadImage(avatarURL);
+  if (avatarURL) {
+    const avatar = await loadImage(avatarURL);
 
-  const avatarSize = 180;
-  const avatarX = 60;
-  const avatarY = 150;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(200, 300, 150, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.clip();
+    ctx.drawImage(avatar, 50, 150, 300, 300);
+    ctx.restore();
+  }
 
-  ctx.save();
-  ctx.beginPath();
-  ctx.arc(
-    avatarX + avatarSize / 2,
-    avatarY + avatarSize / 2,
-    avatarSize / 2,
-    0,
-    Math.PI * 2
-  );
-  ctx.closePath();
-  ctx.clip();
+  // Right Text Section
+  ctx.fillStyle = "#0f172a";
+  ctx.font = "bold 48px Arial";
+  ctx.fillText(member.name, 450, 220);
 
-  ctx.drawImage(avatar, avatarX, avatarY, avatarSize, avatarSize);
-  ctx.restore();
+  ctx.font = "32px monospace";
+  ctx.fillStyle = "#0369a1";
+  ctx.fillText("ID: " + member.id, 450, 280);
 
-  // Circle border
-  ctx.strokeStyle = "#3b82f6";
-  ctx.lineWidth = 6;
-  ctx.beginPath();
-  ctx.arc(
-    avatarX + avatarSize / 2,
-    avatarY + avatarSize / 2,
-    avatarSize / 2,
-    0,
-    Math.PI * 2
-  );
-  ctx.stroke();
+  ctx.font = "28px Arial";
+  ctx.fillStyle = "#1e293b";
+  ctx.fillText("Role: " + member.role, 450, 330);
+  ctx.fillText("Status: " + member.status, 450, 370);
 
-  // ===== MEMBER DETAILS (RIGHT SIDE) =====
-  const textStartX = 300;
-  let y = 180;
-
-  ctx.fillStyle = "#1e3a8a";
-  ctx.font = "bold 40px Sans";
-  ctx.fillText(member.name, textStartX, y);
-
-  y += 60;
-
-  ctx.font = "28px Sans";
-  ctx.fillStyle = "#1f2937";
-  ctx.fillText(`Role: ${member.role}`, textStartX, y);
-
-  y += 45;
-  ctx.fillText(`Status: ${member.status}`, textStartX, y);
-
-  y += 45;
-
-  ctx.fillStyle = "#2563eb";
-  ctx.font = "bold 30px Monospace";
-  ctx.fillText(`ID: ${member.id}`, textStartX, y);
-
-  y += 45;
-
-  ctx.font = "22px Sans";
+  ctx.font = "20px Arial";
   ctx.fillStyle = "#475569";
-  ctx.fillText(`Issued: ${member.issuedon || member.issuedOn}`, textStartX, y);
-
-  y += 35;
-  ctx.fillText(`Ref: ${member.internalid || member.internalId}`, textStartX, y);
-
-  // ===== FOOTER LINE =====
-  ctx.fillStyle = "#3b82f6";
-  ctx.fillRect(0, 480, 900, 20);
+  ctx.fillText("Issued: " + member.issuedon, 450, 430);
+  ctx.fillText("Internal Ref: " + member.internalid, 450, 460);
 
   return canvas.toBuffer("image/png");
 }
 
 /* ================= SLASH COMMANDS ================= */
-const commands = [
 
+const commands = [
   new SlashCommandBuilder()
     .setName("register")
-    .setDescription("Register a new UOI member")
+    .setDescription("Register new UOI member")
     .addStringOption(o =>
       o.setName("name")
-       .setDescription("Member full name")
-       .setRequired(true))
+        .setDescription("Full Name")
+        .setRequired(true)
+    )
     .addStringOption(o =>
       o.setName("role")
-       .setDescription("Member role")
-       .setRequired(true)),
-
-  new SlashCommandBuilder()
-    .setName("verify")
-    .setDescription("Verify a UOI ID")
-    .addStringOption(o =>
-      o.setName("id")
-       .setDescription("Member ID")
-       .setRequired(true)),
+        .setDescription("Server Role")
+        .setRequired(true)
+    ),
 
   new SlashCommandBuilder()
     .setName("card")
     .setDescription("Generate ID card")
     .addStringOption(o =>
       o.setName("id")
-       .setDescription("Member ID")
-       .setRequired(true)),
+        .setDescription("UOI ID")
+        .setRequired(true)
+    ),
 
   new SlashCommandBuilder()
     .setName("lookup")
-    .setDescription("Lookup member by ID")
+    .setDescription("Lookup member")
     .addStringOption(o =>
       o.setName("id")
-       .setDescription("Member ID")
-       .setRequired(true)),
-
-  new SlashCommandBuilder()
-    .setName("setstatus")
-    .setDescription("Change member status")
-    .addStringOption(o =>
-      o.setName("id")
-       .setDescription("Member ID")
-       .setRequired(true))
-    .addStringOption(o =>
-      o.setName("status")
-       .setDescription("New status (ACTIVE / SUSPENDED / REVOKED)")
-       .setRequired(true)),
-
-  new SlashCommandBuilder()
-    .setName("setrole")
-    .setDescription("Change member role")
-    .addStringOption(o =>
-      o.setName("id")
-       .setDescription("Member ID")
-       .setRequired(true))
-    .addStringOption(o =>
-      o.setName("role")
-       .setDescription("New role")
-       .setRequired(true)),
-
-  new SlashCommandBuilder()
-    .setName("delete")
-    .setDescription("Delete a member")
-    .addStringOption(o =>
-      o.setName("id")
-       .setDescription("Member ID")
-       .setRequired(true)),
-
-  new SlashCommandBuilder()
-    .setName("list")
-    .setDescription("List all members")
-
+        .setDescription("UOI ID")
+        .setRequired(true)
+    )
 ].map(c => c.toJSON());
+
+const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
+
+async function registerCommands() {
+  await rest.put(
+    Routes.applicationCommands(process.env.CLIENT_ID),
+    { body: commands }
+  );
+}
 
 /* ================= BOT READY ================= */
 
-client.once("clientReady", async () => {
+client.once("ready", async () => {
   console.log("UOI SYSTEM ONLINE:", client.user.tag);
+  await registerCommands();
 });
 
-/* ================= COMMAND HANDLER ================= */
+/* ================= INTERACTIONS ================= */
 
 client.on("interactionCreate", async interaction => {
-  if (!interaction.isChatInputCommand()) return;
+  try {
+    if (!interaction.isChatInputCommand()) return;
 
-  await interaction.deferReply();
+    await interaction.deferReply();
 
-  const cmd = interaction.commandName;
+    const cmd = interaction.commandName;
 
-  if (cmd === "register") {
-    if (!isAdmin(interaction))
-      return interaction.editReply("❌ Admin only.");
+    /* ===== REGISTER ===== */
 
-    const id = generateID();
-    const name = interaction.options.getString("name");
-    const role = interaction.options.getString("role");
+    if (cmd === "register") {
+      if (!isAdmin(interaction))
+        return interaction.editReply("Admin only.");
 
-    const issuedOn = new Date().toLocaleDateString();
-    const internalId = "UOI-" + Date.now();
+      const name = interaction.options.getString("name");
+      const role = interaction.options.getString("role");
 
-    await pool.query(
-      `INSERT INTO members VALUES ($1,$2,$3,$4,$5,$6)`,
-      [id, name, role, "ACTIVE", issuedOn, internalId]
-    );
+      if (!name || !role)
+        return interaction.editReply("Invalid input.");
 
-    logAction(`Registered ${name} (${id})`);
-    return interaction.editReply(`✅ Registered.\nID: ${id}`);
-  }
+      const id = generateID();
 
-  if (cmd === "verify") {
-    const id = interaction.options.getString("id");
-    const result = await pool.query(
-      `SELECT * FROM members WHERE id = $1`,
-      [id]
-    );
+      await pool.query(
+        `INSERT INTO members 
+        (id, discord_id, name, role, status, issuedOn, internalId)
+        VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+        [
+          id,
+          interaction.user.id,
+          name,
+          role,
+          "ACTIVE",
+          new Date().toLocaleDateString(),
+          "UOI-" + Date.now()
+        ]
+      );
 
-    if (!result.rows.length)
-      return interaction.editReply("❌ Not found.");
+      return interaction.editReply(`Registered.\nID: ${id}`);
+    }
 
-    const m = result.rows[0];
+    /* ===== LOOKUP ===== */
 
-    return interaction.editReply(
-      `**Name:** ${m.name}\n**Role:** ${m.role}\n**Status:** ${m.status}`
-    );
-  }
+    if (cmd === "lookup") {
+      const id = interaction.options.getString("id");
 
-  if (cmd === "card") {
-    const id = interaction.options.getString("id");
-    const result = await pool.query(
-      `SELECT * FROM members WHERE id = $1`,
-      [id]
-    );
+      const result = await pool.query(
+        "SELECT * FROM members WHERE id = $1",
+        [id]
+      );
 
-    if (!result.rows.length)
-      return interaction.editReply("❌ Not found.");
+      if (!result.rows.length)
+        return interaction.editReply("Not found.");
 
-    const m = result.rows[0];
+      const m = result.rows[0];
 
-    const avatarURL = interaction.user.displayAvatarURL({
-      extension: "png",
-      size: 512
-    });
+      return interaction.editReply(
+        `Name: ${m.name}\nRole: ${m.role}\nStatus: ${m.status}`
+      );
+    }
 
-    const buffer = await createCard(m, avatarURL);
+    /* ===== CARD ===== */
 
-    return interaction.editReply({
-      files: [new AttachmentBuilder(buffer, { name: "uoi-card.png" })]
-    });
-  }
+    if (cmd === "card") {
+      const id = interaction.options.getString("id");
 
-  if (cmd === "setstatus") {
-    if (!isAdmin(interaction))
-      return interaction.editReply("❌ Admin only.");
+      const result = await pool.query(
+        "SELECT * FROM members WHERE id = $1",
+        [id]
+      );
 
-    const id = interaction.options.getString("id");
-    const status = interaction.options.getString("status");
+      if (!result.rows.length)
+        return interaction.editReply("Not found.");
 
-    await pool.query(
-      `UPDATE members SET status = $1 WHERE id = $2`,
-      [status, id]
-    );
+      const m = result.rows[0];
 
-    logAction(`Status updated: ${id} → ${status}`);
-    return interaction.editReply("✅ Status updated.");
-  }
+      const discordUser = await client.users.fetch(m.discord_id);
 
-  if (cmd === "setrole") {
-    if (!isAdmin(interaction))
-      return interaction.editReply("❌ Admin only.");
+      const buffer = await createCard(m, discordUser);
 
-    const id = interaction.options.getString("id");
-    const role = interaction.options.getString("role");
+      return interaction.editReply({
+        files: [new AttachmentBuilder(buffer, { name: "uoi-card.png" })]
+      });
+    }
 
-    await pool.query(
-      `UPDATE members SET role = $1 WHERE id = $2`,
-      [role, id]
-    );
-
-    logAction(`Role updated: ${id} → ${role}`);
-    return interaction.editReply("✅ Role updated.");
-  }
-
-  if (cmd === "delete") {
-    if (!isAdmin(interaction))
-      return interaction.editReply("❌ Admin only.");
-
-    const id = interaction.options.getString("id");
-
-    await pool.query(
-      `DELETE FROM members WHERE id = $1`,
-      [id]
-    );
-
-    logAction(`Deleted member ${id}`);
-    return interaction.editReply("🗑 Member deleted.");
-  }
-
-  if (cmd === "list") {
-    if (!isAdmin(interaction))
-      return interaction.editReply("❌ Admin only.");
-
-    const result = await pool.query(`SELECT * FROM members`);
-
-    if (!result.rows.length)
-      return interaction.editReply("No members.");
-
-    const text = result.rows
-      .map(r => `${r.id} | ${r.name} | ${r.status}`)
-      .join("\n");
-
-    return interaction.editReply("```\n" + text + "\n```");
+  } catch (err) {
+    console.error(err);
+    if (interaction.deferred || interaction.replied) {
+      interaction.editReply("System error.");
+    }
   }
 });
 
