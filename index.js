@@ -119,54 +119,81 @@ async function createCard(member, avatarURL) {
 }
 
 /* ================= SLASH COMMANDS ================= */
-
 const commands = [
+
   new SlashCommandBuilder()
     .setName("register")
-    .setDescription("Register new UOI member")
-    .addStringOption(o => o.setName("name").setRequired(true))
-    .addStringOption(o => o.setName("role").setRequired(true)),
+    .setDescription("Register a new UOI member")
+    .addStringOption(o =>
+      o.setName("name")
+       .setDescription("Member full name")
+       .setRequired(true))
+    .addStringOption(o =>
+      o.setName("role")
+       .setDescription("Member role")
+       .setRequired(true)),
 
   new SlashCommandBuilder()
     .setName("verify")
-    .setDescription("Verify member by ID")
-    .addStringOption(o => o.setName("id").setRequired(true)),
+    .setDescription("Verify a UOI ID")
+    .addStringOption(o =>
+      o.setName("id")
+       .setDescription("Member ID")
+       .setRequired(true)),
 
   new SlashCommandBuilder()
     .setName("card")
     .setDescription("Generate ID card")
-    .addStringOption(o => o.setName("id").setRequired(true)),
+    .addStringOption(o =>
+      o.setName("id")
+       .setDescription("Member ID")
+       .setRequired(true)),
+
+  new SlashCommandBuilder()
+    .setName("lookup")
+    .setDescription("Lookup member by ID")
+    .addStringOption(o =>
+      o.setName("id")
+       .setDescription("Member ID")
+       .setRequired(true)),
 
   new SlashCommandBuilder()
     .setName("setstatus")
     .setDescription("Change member status")
-    .addStringOption(o => o.setName("id").setRequired(true))
-    .addStringOption(o => o.setName("status").setRequired(true)),
+    .addStringOption(o =>
+      o.setName("id")
+       .setDescription("Member ID")
+       .setRequired(true))
+    .addStringOption(o =>
+      o.setName("status")
+       .setDescription("New status (ACTIVE / SUSPENDED / REVOKED)")
+       .setRequired(true)),
 
   new SlashCommandBuilder()
     .setName("setrole")
     .setDescription("Change member role")
-    .addStringOption(o => o.setName("id").setRequired(true))
-    .addStringOption(o => o.setName("role").setRequired(true)),
+    .addStringOption(o =>
+      o.setName("id")
+       .setDescription("Member ID")
+       .setRequired(true))
+    .addStringOption(o =>
+      o.setName("role")
+       .setDescription("New role")
+       .setRequired(true)),
 
   new SlashCommandBuilder()
     .setName("delete")
-    .setDescription("Delete member")
-    .addStringOption(o => o.setName("id").setRequired(true)),
+    .setDescription("Delete a member")
+    .addStringOption(o =>
+      o.setName("id")
+       .setDescription("Member ID")
+       .setRequired(true)),
 
   new SlashCommandBuilder()
     .setName("list")
-    .setDescription("List all members (Admin only)")
+    .setDescription("List all members")
+
 ].map(c => c.toJSON());
-
-const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
-
-async function registerCommands() {
-  await rest.put(
-    Routes.applicationCommands(process.env.CLIENT_ID),
-    { body: commands }
-  );
-}
 
 /* ================= BOT READY ================= */
 
