@@ -7,7 +7,7 @@ import {
   Routes
 } from "discord.js";
 import pkg from "pg";
-import { createCanvas, loadImage } from "canvas";
+import { createCanvas, loadImage } from "@napi-rs/canvas";
 
 const { Pool } = pkg;
 
