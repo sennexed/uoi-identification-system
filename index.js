@@ -52,68 +52,103 @@ function logAction(message) {
 }
 
 /* ================= CARD BUILDER ================= */
-
-async function createCard(member, avatarURL) {
-  const canvas = createCanvas(900, 550);
+async function createCard(member, interaction) {
+  const canvas = createCanvas(900, 500);
   const ctx = canvas.getContext("2d");
 
-  // Background
-  ctx.fillStyle = "#0f172a";
-  ctx.fillRect(0, 0, 900, 550);
-
-  // Top accent
-  const gradient = ctx.createLinearGradient(0, 0, 900, 0);
-  gradient.addColorStop(0, "#ff9933");
-  gradient.addColorStop(0.5, "#ffffff");
-  gradient.addColorStop(1, "#138808");
+  // ===== BACKGROUND =====
+  const gradient = ctx.createLinearGradient(0, 0, 900, 500);
+  gradient.addColorStop(0, "#dbeafe");  // light blue
+  gradient.addColorStop(1, "#ffffff");  // white
   ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, 900, 12);
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Header
+  // ===== HEADER BAR =====
+  ctx.fillStyle = "#3b82f6"; // blue
+  ctx.fillRect(0, 0, 900, 80);
+
   ctx.fillStyle = "#ffffff";
-  ctx.font = "bold 36px Arial";
-  ctx.fillText("UNION OF INDIANS", 50, 80);
+  ctx.font = "bold 32px Sans";
+  ctx.fillText("UNION OF INDIANS", 40, 50);
 
-  ctx.font = "24px Arial";
-  ctx.fillText("OFFICIAL IDENTIFICATION CARD", 50, 120);
+  ctx.font = "18px Sans";
+  ctx.fillText("OFFICIAL IDENTIFICATION CARD", 40, 70);
 
-  // Avatar (circular)
-  if (avatarURL) {
-    try {
-      const avatar = await loadImage(avatarURL);
-      const size = 220;
-      const x = 600;
-      const y = 150;
+  // ===== PFP (LEFT SIDE) =====
+  const avatarURL = interaction.user.displayAvatarURL({
+    extension: "png",
+    size: 512
+  });
 
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);
-      ctx.closePath();
-      ctx.clip();
+  const avatar = await loadImage(avatarURL);
 
-      ctx.drawImage(avatar, x, y, size, size);
-      ctx.restore();
-    } catch {}
-  }
+  const avatarSize = 180;
+  const avatarX = 60;
+  const avatarY = 150;
 
-  // Member Info
-  ctx.fillStyle = "#ffffff";
-  ctx.font = "bold 42px Arial";
-  ctx.fillText(member.name, 50, 200);
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(
+    avatarX + avatarSize / 2,
+    avatarY + avatarSize / 2,
+    avatarSize / 2,
+    0,
+    Math.PI * 2
+  );
+  ctx.closePath();
+  ctx.clip();
 
-  ctx.font = "32px monospace";
-  ctx.fillStyle = "#fbbf24";
-  ctx.fillText("ID: " + member.id, 50, 260);
+  ctx.drawImage(avatar, avatarX, avatarY, avatarSize, avatarSize);
+  ctx.restore();
 
-  ctx.font = "28px Arial";
-  ctx.fillStyle = "#cbd5e1";
-  ctx.fillText("Role: " + member.role, 50, 320);
-  ctx.fillText("Status: " + member.status, 50, 360);
+  // Circle border
+  ctx.strokeStyle = "#3b82f6";
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.arc(
+    avatarX + avatarSize / 2,
+    avatarY + avatarSize / 2,
+    avatarSize / 2,
+    0,
+    Math.PI * 2
+  );
+  ctx.stroke();
 
-  ctx.font = "22px Arial";
-  ctx.fillStyle = "#94a3b8";
-  ctx.fillText("Issued: " + member.issuedOn, 50, 420);
-  ctx.fillText("Internal Ref: " + member.internalId, 50, 460);
+  // ===== MEMBER DETAILS (RIGHT SIDE) =====
+  const textStartX = 300;
+  let y = 180;
+
+  ctx.fillStyle = "#1e3a8a";
+  ctx.font = "bold 40px Sans";
+  ctx.fillText(member.name, textStartX, y);
+
+  y += 60;
+
+  ctx.font = "28px Sans";
+  ctx.fillStyle = "#1f2937";
+  ctx.fillText(`Role: ${member.role}`, textStartX, y);
+
+  y += 45;
+  ctx.fillText(`Status: ${member.status}`, textStartX, y);
+
+  y += 45;
+
+  ctx.fillStyle = "#2563eb";
+  ctx.font = "bold 30px Monospace";
+  ctx.fillText(`ID: ${member.id}`, textStartX, y);
+
+  y += 45;
+
+  ctx.font = "22px Sans";
+  ctx.fillStyle = "#475569";
+  ctx.fillText(`Issued: ${member.issuedon || member.issuedOn}`, textStartX, y);
+
+  y += 35;
+  ctx.fillText(`Ref: ${member.internalid || member.internalId}`, textStartX, y);
+
+  // ===== FOOTER LINE =====
+  ctx.fillStyle = "#3b82f6";
+  ctx.fillRect(0, 480, 900, 20);
 
   return canvas.toBuffer("image/png");
 }
